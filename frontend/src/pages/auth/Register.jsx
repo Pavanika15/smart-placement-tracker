@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../../services/authService";
+import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const Register = () => {
@@ -32,11 +33,20 @@ const Register = () => {
       if (res.data.token) {
         login(res.data);
 
-        navigate(
-          res.data.user.role === "admin"
-            ? "/admin/AdminDashboard"
-            : "/student/StudentDashboard"
-        );
+        if (res.data.user.role === "admin") {
+          navigate("/admin/AdminDashboard");
+        } else {
+          try {
+            await api.get("/students/me");
+            navigate("/student/StudentDashboard");
+          } catch (error) {
+            if (error.response?.status === 404) {
+              navigate("/student/profile");
+            } else {
+              setError(error.response?.data?.message || "Registration failed");
+            }
+          }
+        }
       } else {
         navigate("/login");
       }

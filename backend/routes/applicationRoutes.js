@@ -3,6 +3,7 @@ import {
   applyToCompany,
   getApplicationsByStudent,
   updateApplicationStatus,
+  getAllApplications,
 } from '../controllers/applicationController.js';
 
 import protect from '../middleware/authMiddleware.js';
@@ -14,7 +15,12 @@ const router = express.Router();
 router.post('/apply', protect, authorize('student'), applyToCompany);
 
 // Get all applications for a student
-router.get('/student/:id', protect, getApplicationsByStudent);
+router.get('/student', protect, authorize("student"), getApplicationsByStudent)
+
+
+;router.get("/all", protect, authorize("admin"), getAllApplications);
+
+
 
 // Admin updates application status
 router.put(

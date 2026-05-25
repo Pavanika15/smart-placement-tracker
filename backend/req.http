@@ -18,3 +18,55 @@ Content-Type: application/json
   "password": "123456"
 }
 
+
+### Register admin
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "author",
+  "email": "author@gmail.com",
+  "password": "author",
+  "role":"admin"
+}
+
+### Login admin
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "author@gmail.com",
+  "password": "author"
+}
+
+###
+POST http://localhost:5000/api/companies
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMGVhMmFiZWRlY2M2Y2QzYThiZDFmNiIsImlhdCI6MTc3OTM0NDA1MSwiZXhwIjoxNzc5OTQ4ODUxfQ.44Er1um4ngrQ-cETiQoXxM8Q1z8m_HvAEz3cDK6ZFWQ
+Content-Type: application/json
+
+{
+  "companyName": "Google",
+  "jobRole": "Software Engineer",
+  "ctc": "18 LPA",
+  "minCGPA": 8,
+  "eligibleBranches": ["CSE", "IT"],
+  "deadline": "2026-06-10",
+  "rounds": ["Aptitude", "Technical", "HR"]
+}
+
+
+###
+GET http://localhost:5000/api/companies
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMGVhMmFiZWRlY2M2Y2QzYThiZDFmNiIsImlhdCI6MTc3OTM0NDA1MSwiZXhwIjoxNzc5OTQ4ODUxfQ.44Er1um4ngrQ-cETiQoXxM8Q1z8m_HvAEz3cDK6ZFWQ
+
+### Create Student Profile
+POST http://localhost:5000/api/students
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMGVhMDMwZWRlY2M2Y2QzYThiZDFmNCIsImlhdCI6MTc3OTM0NTc0MiwiZXhwIjoxNzc5OTUwNTQyfQ.Inl-EgxQh5RC4iyKUvyfilvjQrq9r_o8oej3E3VUY9o
+Content-Type: application/json
+
+{
+  "rollNumber": "23EG105V04",
+  "branch": "CSE",
+  "cgpa": 8.9,
+  "backlogs": 0
+}

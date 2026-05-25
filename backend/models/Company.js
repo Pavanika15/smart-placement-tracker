@@ -44,6 +44,12 @@ const companySchema = new mongoose.Schema(
         type: String,
       },
     ],
+
+    interviewDates: [
+      {
+        type: Date,
+      },
+    ],
   },
   {
     timestamps: true,
