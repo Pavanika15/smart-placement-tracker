@@ -14,6 +14,12 @@ const companySchema = new mongoose.Schema(
       trim: true,
     },
 
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     ctc: {
       type: String,
       required: true,
@@ -30,7 +36,7 @@ const companySchema = new mongoose.Schema(
     eligibleBranches: [
       {
         type: String,
-        enum: ["CSE", "CSE-AI", "IT", "ECE", "EEE", "MECH", "CIVIL"],
+        enum: ["CSE", "CSE-AI","AIML","CSE-DS", "IT", "ECE", "EEE", "MECH", "CIVIL"],
       },
     ],
 

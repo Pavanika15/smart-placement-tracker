@@ -51,6 +51,8 @@ export const updateStudent = async (req, res) => {
     student.branch = req.body.branch ?? student.branch;
     student.cgpa = req.body.cgpa ?? student.cgpa;
     student.backlogs = req.body.backlogs ?? student.backlogs;
+    student.course = req.body.course ?? student.course;
+    student.section = req.body.section ?? student.section;
 
     await student.save();
     const updatedStudent = await student.populate("user", "name email role");
@@ -62,10 +64,15 @@ export const updateStudent = async (req, res) => {
 
 export const getStudents = async (req, res) => {
   try {
-    const students = await Student.find().populate(
-      'user',
-      'name email'
-    );
+    const { branch, course, section, rollNumber } = req.query;
+
+    const filter = {};
+    if (branch) filter.branch = branch;
+    if (course) filter.course = course;
+    if (section) filter.section = section;
+    if (rollNumber) filter.rollNumber = rollNumber;
+
+    const students = await Student.find(filter).populate('user', 'name email');
 
     res.json(students);
   } catch (error) {
@@ -85,6 +92,8 @@ export const updateStudentByAdmin = async (req, res) => {
     student.branch = req.body.branch ?? student.branch;
     student.cgpa = req.body.cgpa ?? student.cgpa;
     student.backlogs = req.body.backlogs ?? student.backlogs;
+    student.course = req.body.course ?? student.course;
+    student.section = req.body.section ?? student.section;
 
     await student.save();
     const updatedStudent = await student.populate('user', 'name email');
@@ -124,13 +133,16 @@ export const getEligibleStudents = async (
     }
     
 
-    const students = await Student.find({
+    const filter = {
       cgpa: { $gte: company.minCGPA },
-      branch: {
-        $in: company.eligibleBranches,
-      },
       backlogs: 0,
-    }).populate('user', 'name email');
+    };
+
+    if (company.eligibleBranches && company.eligibleBranches.length > 0) {
+      filter.branch = { $in: company.eligibleBranches };
+    }
+
+    const students = await Student.find(filter).populate('user', 'name email');
 
     res.json(students);
   } catch (error) {

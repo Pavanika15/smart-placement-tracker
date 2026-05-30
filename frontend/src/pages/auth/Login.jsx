@@ -28,6 +28,7 @@ const Login = () => {
     try {
       const res = await loginUser(formData);
       login(res.data);
+      alert("Login successful!");
 
       if (res.data.user.role === "admin") {
         navigate("/admin/AdminDashboard");

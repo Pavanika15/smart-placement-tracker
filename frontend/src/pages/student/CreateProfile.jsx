@@ -10,6 +10,8 @@ export default function CreateProfile() {
     branch: "",
     cgpa: "",
     backlogs: 0,
+    course: "",
+    section: "",
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,6 +26,8 @@ export default function CreateProfile() {
           branch: res.data.branch || "",
           cgpa: res.data.cgpa ?? "",
           backlogs: res.data.backlogs ?? 0,
+          course: res.data.course || "",
+          section: res.data.section || "",
         });
         setProfileExists(true);
       } catch (err) {
@@ -138,13 +142,35 @@ export default function CreateProfile() {
           />
 
           <input
-            type="number"
+            type="text"
+            name="course"
+            placeholder="Course (e.g. B.Tech)"
+            value={formData.course}
+            onChange={handleChange}
+            className="w-full border p-3 rounded mb-4"
+          />
+
+          <input
+            type="text"
+            name="section"
+            placeholder="Section (e.g. A)"
+            value={formData.section}
+            onChange={handleChange}
+            className="w-full border p-3 rounded mb-4"
+          />
+
+          <select
             name="backlogs"
-            placeholder="Backlogs"
             value={formData.backlogs}
             onChange={handleChange}
             className="w-full border p-3 rounded mb-6"
-          />
+            required
+          >
+            <option value="0">0 Backlogs</option>
+            <option value="1">1 Backlog</option>
+            <option value="2">2 Backlogs</option>
+            <option value="3">More than 2</option>
+          </select>
 
           <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg">
             {profileExists ? "Update Profile" : "Create Profile"}

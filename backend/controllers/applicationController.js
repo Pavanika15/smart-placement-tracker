@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import Application from '../models/Application.js';
 import Company from '../models/Company.js';
 import Student from '../models/Student.js';
@@ -55,17 +57,45 @@ export const applyToCompany = async (req, res) => {
       });
     }
 
+    let resumeUrl = req.body.resumeUrl || null;
+    let resumeName = req.body.resumeName || null;
+
+    if (req.body.resumeBase64 && req.body.resumeName) {
+      try {
+        const uploadDir = path.join(process.cwd(), 'uploads', 'resumes');
+        await fs.mkdir(uploadDir, { recursive: true });
+
+        const extension = path.extname(req.body.resumeName) || '.pdf';
+        const fileName = `${Date.now()}-${student._id}${extension}`;
+        const filePath = path.join(uploadDir, fileName);
+        const base64Data = req.body.resumeBase64.replace(/^data:[^;]+;base64,/, '');
+        await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
+
+        resumeUrl = `/uploads/resumes/${fileName}`;
+        resumeName = req.body.resumeName;
+      } catch (fileError) {
+        console.error('Failed to save resume upload:', fileError);
+      }
+    }
+
     const application = await Application.create({
       student: student._id,
       company: companyId,
+      preferredLocation: req.body.preferredLocation || null,
+      resumeUrl,
+      resumeName,
+      statement: req.body.statement || null,
     });
 
     if (student.user?.email) {
       try {
+        const applyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/student/applications`;
+        const confirmationText = `Hello ${student.user.name || 'Student'},\n\nThank you for applying to ${company.companyName} (${company.jobRole}). Your submission has been received and is now under review.\n\nApplication details:\n- Company: ${company.companyName}\n- Role: ${company.jobRole}\n- Preferred location: ${application.preferredLocation || 'Not specified'}\n\nYou can track your application status here: ${applyUrl}\n\nBest regards,\nPlacement Team`;
+
         await sendEmail(
           student.user.email,
-          `Application Confirmed: ${company.companyName}`,
-          `Hello ${student.user.name || 'Student'},\n\nYour application for ${company.companyName} (${company.jobRole}) has been received. You meet the eligibility criteria and your application is under review.\n\nBest of luck!\nPlacement Team`
+          `Application Received: ${company.companyName}`,
+          confirmationText
         );
       } catch (emailError) {
         console.error('Failed to send eligibility confirmation email:', emailError);
@@ -148,22 +178,23 @@ export const updateApplicationStatus = async (
     if (application.student?.user?.email) {
       const studentName = application.student.user.name || 'Student';
       const companyName = application.company?.companyName || 'the company';
+      const role = application.company?.jobRole || 'the role';
       const status = application.status;
-      let subject = `Application Update: ${companyName}`;
-      let text = `Hello ${studentName},\n\nYour application status for ${companyName} has been updated to: ${status}.\n\n`;
+      let subject = `Placement Update: ${companyName}`;
+      let text = `Hello ${studentName},\n\nWe wanted to update you on your application for ${companyName} (${role}). The current status is: ${status}.\n\n`;
 
       if (status === 'Selected') {
-        text += 'Congratulations! You have been selected. The final offer details will be shared soon.';
+        text += 'Congratulations! You have been selected. The next steps and offer details will be shared with you shortly.';
       } else if (status === 'Rejected') {
-        text += 'Unfortunately, you were not selected for this company. Keep applying to other drives.';
+        text += 'We regret to inform you that your application was not successful. Please continue applying to other suitable drives and keep your profile updated.';
       } else if (status.includes('Round 1 Cleared')) {
-        text += `You have cleared Round 1. ${companyName} may share interview schedule details shortly.`;
+        text += `You have successfully cleared Round 1. Please await further communication for the next stage.`;
       } else if (status.includes('Round 2 Cleared')) {
-        text += `You have cleared Round 2. ${companyName} may share the next interview schedule soon.`;
+        text += `You have successfully cleared Round 2. Please await the next update regarding the HR or final round.`;
       } else if (status.includes('HR Round Cleared')) {
-        text += `You have cleared the HR round. Final decision will follow soon.`;
+        text += `You have successfully cleared the HR round. The final decision will be sent to you soon.`;
       } else {
-        text += 'Please check your dashboard for more details and next steps.';
+        text += 'Please check your student dashboard for more details and next steps.';
       }
 
       if (application.company?.interviewDates?.length) {
@@ -179,6 +210,8 @@ export const updateApplicationStatus = async (
           text += `\n\nScheduled interview date: ${application.company.interviewDates[roundIndex].toISOString().slice(0, 10)}`;
         }
       }
+
+      text += '\n\nBest regards,\nPlacement Team';
 
       try {
         await sendEmail(application.student.user.email, subject, text);

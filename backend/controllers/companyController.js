@@ -7,30 +7,45 @@ export const createCompany = async (req, res) => {
   try {
     const company = await Company.create(req.body);
 
-    const students = await Student.find().populate('user', 'name email');
+    // Notify only eligible students about the new company
+    const filter = {
+      cgpa: { $gte: company.minCGPA },
+      backlogs: 0,
+    };
+
+    if (company.eligibleBranches && company.eligibleBranches.length > 0) {
+      filter.branch = { $in: company.eligibleBranches };
+    }
+
+    const students = await Student.find(filter).populate('user', 'name email');
     const emails = students
-      .filter((student) => student.user?.email)
-      .map((student) => student.user.email);
+      .map((s) => s.user?.email)
+      .filter(Boolean);
 
-    await Promise.allSettled(
-      emails.map((email) =>
-        sendEmail(
-          email,
-          `New Company Announcement: ${company.companyName}`,
-          `Hello,
+    if (emails.length > 0) {
+      const subject = `New Placement Drive Posted: ${company.companyName}`;
+      const applyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/student/apply/${company._id}`;
+      const body = `Hello,\n\nA new placement drive has been launched for ${company.companyName} - ${company.jobRole}.\n\nRole: ${company.jobRole}\nLocation: ${company.location || 'N/A'}\nMinimum CGPA: ${company.minCGPA}\nEligible branches: ${company.eligibleBranches?.join(', ') || 'All'}\nDeadline: ${company.deadline ? company.deadline.toISOString().slice(0, 10) : 'N/A'}\n\nIf you are eligible, please log in and apply using the link below:\n${applyUrl}\n\nBest regards,\nPlacement Team`;
+      const htmlBody = `
+        <div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;line-height:1.6;">
+          <p>Hello,</p>
+          <p>A new placement drive has been launched for <strong>${company.companyName}</strong> - <strong>${company.jobRole}</strong>.</p>
+          <ul>
+            <li><strong>Role:</strong> ${company.jobRole}</li>
+            <li><strong>Location:</strong> ${company.location || 'N/A'}</li>
+            <li><strong>Minimum CGPA:</strong> ${company.minCGPA}</li>
+            <li><strong>Eligible branches:</strong> ${company.eligibleBranches?.join(', ') || 'All'}</li>
+            <li><strong>Deadline:</strong> ${company.deadline ? company.deadline.toISOString().slice(0, 10) : 'N/A'}</li>
+          </ul>
+          <p>If you are eligible, please <a href="${applyUrl}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;">click here to apply</a>.</p>
+          <p>Best regards,<br />Placement Team</p>
+        </div>
+      `;
 
-A new placement drive has been posted for ${company.companyName} - ${company.jobRole}.
-Minimum CGPA: ${company.minCGPA}
-Eligible branches: ${company.eligibleBranches?.join(', ') || 'All'}
-Deadline: ${company.deadline ? company.deadline.toISOString().slice(0, 10) : 'N/A'}
-
-Please log in to apply if you are eligible and the deadline has not passed.
-
-Best regards,
-Placement Team`
-        )
-      )
-    );
+      await Promise.allSettled(
+        emails.map((email) => sendEmail(email, subject, body, htmlBody))
+      );
+    }
 
     res.status(201).json(company);
   } catch (error) {
@@ -92,6 +107,41 @@ export const updateCompany = async (req, res) => {
           !oldDates[index] ||
           date.getTime() !== oldDates[index].getTime()
       );
+
+    // If eligible branches or minCGPA changed, notify newly eligible students
+    const oldFilter = { cgpa: { $gte: oldCompany.minCGPA }, backlogs: 0 };
+    if (oldCompany.eligibleBranches && oldCompany.eligibleBranches.length > 0) {
+      oldFilter.branch = { $in: oldCompany.eligibleBranches };
+    }
+
+    const newFilter = { cgpa: { $gte: company.minCGPA }, backlogs: 0 };
+    if (company.eligibleBranches && company.eligibleBranches.length > 0) {
+      newFilter.branch = { $in: company.eligibleBranches };
+    }
+
+    try {
+      const [oldEligible, newEligible] = await Promise.all([
+        Student.find(oldFilter).select('_id').lean(),
+        Student.find(newFilter).populate('user', 'name email'),
+      ]);
+
+      const oldIds = new Set(oldEligible.map((s) => String(s._id)));
+      const newlyEligible = (newEligible || []).filter(
+        (s) => s.user?.email && !oldIds.has(String(s._id))
+      );
+
+      if (newlyEligible.length > 0) {
+        const subject = `You Are Now Eligible: ${company.companyName}`;
+        const body = (studentName) =>
+          `Hello ${studentName || 'Student'},\n\nYou are now eligible to apply for ${company.companyName} (${company.jobRole}).\nMinimum CGPA: ${company.minCGPA}\nDeadline: ${company.deadline ? company.deadline.toISOString().slice(0, 10) : 'N/A'}\n\nPlease log in to apply if you are interested.\n\nBest regards,\nPlacement Team`;
+
+        await Promise.allSettled(
+          newlyEligible.map((s) => sendEmail(s.user.email, subject, body(s.user.name)))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to notify newly eligible students:', err);
+    }
 
     if (
       interviewDatesChanged &&

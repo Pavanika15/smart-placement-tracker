@@ -15,6 +15,17 @@ const studentSchema = new mongoose.Schema(
       enum: ['CSE', 'CSE-AI', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL'],
     },
 
+    // course and section added to support filtering by course/section
+    course: {
+      type: String,
+      default: null,
+    },
+
+    section: {
+      type: String,
+      default: null,
+    },
+
     cgpa: {
       type: Number,
       required: true,

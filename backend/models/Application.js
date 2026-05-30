@@ -41,6 +41,25 @@ const applicationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    preferredLocation: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    resumeUrl: {
+      type: String,
+      default: null,
+    },
+    resumeName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    statement: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,

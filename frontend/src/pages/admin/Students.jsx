@@ -4,12 +4,15 @@ import AdminNav from "../../components/AdminNav";
 
 export default function Students() {
   const [students, setStudents] = useState([]);
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterCourse, setFilterCourse] = useState("");
+  const [filterSection, setFilterSection] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [filterBranch, filterCourse, filterSection]);
 
   const [editingStudent, setEditingStudent] = useState(null);
   const [formData, setFormData] = useState({
@@ -17,6 +20,8 @@ export default function Students() {
     branch: "",
     cgpa: "",
     backlogs: "",
+    course: "",
+    section: "",
   });
 
   const fetchStudents = async () => {
@@ -24,7 +29,12 @@ export default function Students() {
     setError("");
 
     try {
-      const res = await api.get("/students");
+      const params = {};
+      if (filterBranch) params.branch = filterBranch;
+      if (filterCourse) params.course = filterCourse;
+      if (filterSection) params.section = filterSection;
+
+      const res = await api.get("/students", { params });
       setStudents(res.data);
     } catch (err) {
       console.error(err);
@@ -41,6 +51,8 @@ export default function Students() {
       branch: student.branch || "",
       cgpa: student.cgpa?.toString() || "",
       backlogs: student.backlogs?.toString() || "0",
+      course: student.course || "",
+      section: student.section || "",
     });
   };
 
@@ -73,9 +85,11 @@ export default function Students() {
         branch: formData.branch,
         cgpa: Number(formData.cgpa),
         backlogs: Number(formData.backlogs),
+        course: formData.course,
+        section: formData.section,
       });
       setEditingStudent(null);
-      setFormData({ rollNumber: "", branch: "", cgpa: "", backlogs: "0" });
+      setFormData({ rollNumber: "", branch: "", cgpa: "", backlogs: "0", course: "", section: "" });
       fetchStudents();
     } catch (err) {
       console.error(err);
@@ -85,7 +99,7 @@ export default function Students() {
 
   const cancelEdit = () => {
     setEditingStudent(null);
-    setFormData({ rollNumber: "", branch: "", cgpa: "", backlogs: "0" });
+    setFormData({ rollNumber: "", branch: "", cgpa: "", backlogs: "0", course: "", section: "" });
     setError("");
   };
 
@@ -97,6 +111,23 @@ export default function Students() {
         <div>
           <h1 className="text-3xl font-bold">Students</h1>
           <p className="text-gray-600 mt-1">Manage student profiles and placement eligibility data.</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)} className="border p-2 rounded">
+            <option value="">All Branches</option>
+            <option value="CSE">CSE</option>
+            <option value="CSE-AI">CSE-AI</option>
+            <option value="AIML">AIML</option>
+            <option value="CSE-DS">CSE-DS</option>
+            <option value="IT">IT</option>
+            <option value="ECE">ECE</option>
+            <option value="EEE">EEE</option>
+            <option value="MECH">MECH</option>
+            <option value="CIVIL">CIVIL</option>
+          </select>
+          <input placeholder="Course" value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} className="border p-2 rounded" />
+          <input placeholder="Section" value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="border p-2 rounded" />
+          <button onClick={() => { setFilterBranch(''); setFilterCourse(''); setFilterSection(''); }} className="border px-3 py-2 rounded">Clear Filters</button>
         </div>
         {editingStudent && (
           <button
@@ -134,6 +165,8 @@ export default function Students() {
                 <option value="">Select branch</option>
                 <option value="CSE">CSE</option>
                 <option value="CSE-AI">CSE-AI</option>
+                <option value="AIML">AIML</option>
+                <option value="CSE-DS">CSE-DS</option>
                 <option value="IT">IT</option>
                 <option value="ECE">ECE</option>
                 <option value="EEE">EEE</option>
@@ -156,16 +189,37 @@ export default function Students() {
               />
             </label>
             <label className="block">
-              <span className="text-sm text-gray-700">Backlogs</span>
+              <span className="text-sm text-gray-700">Course</span>
               <input
+                name="course"
+                value={formData.course}
+                onChange={handleInputChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-gray-700">Section</span>
+              <input
+                name="section"
+                value={formData.section}
+                onChange={handleInputChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-gray-700">Backlogs</span>
+              <select
                 name="backlogs"
-                type="number"
-                min="0"
                 value={formData.backlogs}
                 onChange={handleInputChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                 required
-              />
+              >
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">More than 2</option>
+              </select>
             </label>
             <div className="md:col-span-4 flex gap-3 pt-2">
               <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
@@ -186,6 +240,8 @@ export default function Students() {
               <th className="p-4 text-left">Name</th>
               <th className="p-4 text-left">Email</th>
               <th className="p-4 text-left">Branch</th>
+              <th className="p-4 text-left">Course</th>
+              <th className="p-4 text-left">Section</th>
               <th className="p-4 text-left">CGPA</th>
               <th className="p-4 text-left">Backlogs</th>
               <th className="p-4 text-left">Actions</th>
@@ -216,6 +272,8 @@ export default function Students() {
                   <td className="p-4">{student.user?.name || "-"}</td>
                   <td className="p-4">{student.user?.email || "-"}</td>
                   <td className="p-4">{student.branch || "-"}</td>
+                  <td className="p-4">{student.course || "-"}</td>
+                  <td className="p-4">{student.section || "-"}</td>
                   <td className="p-4">{student.cgpa ?? "-"}</td>
                   <td className="p-4">{student.backlogs ?? "-"}</td>
                   <td className="p-4 flex gap-2">

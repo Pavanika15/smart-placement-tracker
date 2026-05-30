@@ -2,12 +2,13 @@
 import api from "../../services/api";
 import AdminNav from "../../components/AdminNav";
 
-const branchOptions = ["CSE", "CSE-AI", "IT", "ECE", "EEE", "MECH", "CIVIL"];
+const branchOptions = ["CSE", "CSE-AI","AIML","CSE-DS", "IT", "ECE", "EEE", "MECH", "CIVIL"];
 
 const initialFormState = {
   companyName: "",
   jobRole: "",
   ctc: "",
+  location: "",
   minCGPA: "",
   eligibleBranches: [],
   deadline: "",
@@ -17,8 +18,17 @@ const initialFormState = {
 
 export default function Companies() {
   const [companies, setCompanies] = useState([]);
-  const [formData, setFormData] = useState(initialFormState);
-  const [showForm, setShowForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(() => localStorage.getItem("companySearchTerm") || "");
+  const [filterBranch, setFilterBranch] = useState(() => localStorage.getItem("companyFilterBranch") || "");
+  const [filterLocation, setFilterLocation] = useState(() => localStorage.getItem("companyFilterLocation") || "");
+  const [formData, setFormData] = useState(() => {
+    const savedForm = localStorage.getItem("companyFormState");
+    return savedForm ? JSON.parse(savedForm) : initialFormState;
+  });
+  const [showForm, setShowForm] = useState(() => {
+    const savedShowForm = localStorage.getItem("companyFormOpen");
+    return savedShowForm ? JSON.parse(savedShowForm) : false;
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [error, setError] = useState("");
@@ -27,14 +37,34 @@ export default function Companies() {
     fetchCompanies();
   }, []);
 
-  const fetchCompanies = async () => {
+  useEffect(() => {
+    localStorage.setItem("companyFormState", JSON.stringify(formData));
+  }, [formData]);
+
+  useEffect(() => {
+    localStorage.setItem("companyFormOpen", JSON.stringify(showForm));
+  }, [showForm]);
+
+  useEffect(() => {
+    localStorage.setItem("companySearchTerm", searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    localStorage.setItem("companyFilterBranch", filterBranch);
+  }, [filterBranch]);
+
+  useEffect(() => {
+    localStorage.setItem("companyFilterLocation", filterLocation);
+  }, [filterLocation]);
+
+  async function fetchCompanies() {
     try {
       const res = await api.get("/companies");
       setCompanies(res.data);
     } catch (error) {
       console.log(error);
     }
-  };
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -75,6 +105,8 @@ export default function Companies() {
     setIsEditing(false);
     setSelectedCompanyId(null);
     setError("");
+    localStorage.removeItem("companyFormState");
+    localStorage.removeItem("companyFormOpen");
   };
 
   const handleSubmit = async (e) => {
@@ -83,6 +115,7 @@ export default function Companies() {
       const payload = {
         ...formData,
         minCGPA: Number(formData.minCGPA),
+        location: formData.location,
         rounds: formData.rounds.filter(Boolean),
         interviewDates: formData.interviewDates.filter(Boolean).map((date) => date),
       };
@@ -106,6 +139,7 @@ export default function Companies() {
       companyName: company.companyName || "",
       jobRole: company.jobRole || "",
       ctc: company.ctc || "",
+      location: company.location || "",
       minCGPA: company.minCGPA?.toString() || "",
       eligibleBranches: company.eligibleBranches || [],
       deadline: company.deadline ? company.deadline.slice(0, 10) : "",
@@ -133,13 +167,26 @@ export default function Companies() {
     }
   };
 
+  const filteredCompanies = companies.filter((company) => {
+    const matchesName = company.companyName
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesBranch = filterBranch
+      ? company.eligibleBranches?.includes(filterBranch)
+      : true;
+    const matchesLocation = filterLocation
+      ? company.location?.toLowerCase().includes(filterLocation.toLowerCase())
+      : true;
+    return matchesName && matchesBranch && matchesLocation;
+  });
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <AdminNav />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold">Companies</h1>
-          <p className="text-gray-600 mt-1">Add and manage company details, eligibility, deadlines, and interview dates.</p>
+          <p className="text-gray-600 mt-1">Add and manage company details, eligibility, deadlines, location, and interview dates.</p>
         </div>
         <button
           onClick={() => setShowForm((prev) => !prev)}
@@ -147,6 +194,62 @@ export default function Companies() {
         >
           {showForm ? "Hide Form" : "Add Company"}
         </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-4 mb-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Search by Company</span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Filter by Branch</span>
+              <select
+                value={filterBranch}
+                onChange={(e) => setFilterBranch(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              >
+                <option value="">All branches</option>
+                {branchOptions.map((branch) => (
+                  <option key={branch} value={branch}>
+                    {branch}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Filter by Location</span>
+              <input
+                type="text"
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                placeholder="City or campus"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm("");
+              setFilterBranch("");
+              setFilterLocation("");
+            }}
+            className="self-start rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Clear filters
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mt-3">
+          Showing {filteredCompanies.length} of {companies.length} company records.
+        </p>
       </div>
 
       {showForm && (
@@ -158,7 +261,7 @@ export default function Companies() {
           {error && <p className="text-red-600 mb-4">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">Company Name</span>
                 <input
@@ -174,6 +277,16 @@ export default function Companies() {
                 <input
                   name="jobRole"
                   value={formData.jobRole}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Location</span>
+                <input
+                  name="location"
+                  value={formData.location}
                   onChange={handleInputChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                   required
@@ -322,6 +435,7 @@ export default function Companies() {
             <tr>
               <th className="p-4">Company</th>
               <th className="p-4">Role</th>
+              <th className="p-4">Location</th>
               <th className="p-4">CTC</th>
               <th className="p-4">Min CGPA</th>
               <th className="p-4">Deadline</th>
@@ -331,17 +445,18 @@ export default function Companies() {
             </tr>
           </thead>
           <tbody>
-            {companies.length === 0 ? (
+            {filteredCompanies.length === 0 ? (
               <tr>
-                <td colSpan="8" className="p-6 text-center text-gray-500">
-                  No companies found.
+                <td colSpan="9" className="p-6 text-center text-gray-500">
+                  No companies match your filters.
                 </td>
               </tr>
             ) : (
-              companies.map((company) => (
+              filteredCompanies.map((company) => (
                 <tr key={company._id} className="border-t hover:bg-gray-50">
                   <td className="p-4">{company.companyName}</td>
                   <td className="p-4">{company.jobRole}</td>
+                  <td className="p-4">{company.location || "-"}</td>
                   <td className="p-4">{company.ctc}</td>
                   <td className="p-4">{company.minCGPA}</td>
                   <td className="p-4">{company.deadline?.slice(0, 10)}</td>

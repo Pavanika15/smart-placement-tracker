@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../../services/api";
 import AdminNav from "../../components/AdminNav";
 
@@ -10,6 +11,8 @@ export default function AdminDashboard() {
     selectedStudents: 0,
     pendingApplications: 0,
     upcomingInterviews: 0,
+    nextDrive: "No active drives",
+    lastUpdated: new Date().toLocaleString(),
   });
 
   useEffect(() => {
@@ -21,6 +24,9 @@ export default function AdminDashboard() {
           api.get("/applications/all"),
         ]);
 
+        const activeDriveList = companiesRes.data.filter(
+          (company) => !company.deadline || new Date(company.deadline) >= new Date()
+        );
         const selectedCount = applicationsRes.data.filter(
           (app) => app.status === "Selected"
         ).length;
@@ -30,17 +36,22 @@ export default function AdminDashboard() {
         const upcomingCount = applicationsRes.data.filter((app) =>
           ["Round 1 Cleared", "Round 2 Cleared", "HR Round Cleared"].includes(app.status)
         ).length;
-        const activeDriveCount = companiesRes.data.filter(
-          (company) => !company.deadline || new Date(company.deadline) >= new Date()
-        ).length;
+
+        const nextDrive = activeDriveList
+          .filter((company) => company.deadline)
+          .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))[0];
 
         setStats({
           totalCompanies: companiesRes.data.length,
           totalStudents: studentsRes.data.length,
-          activeDrives: activeDriveCount,
+          activeDrives: activeDriveList.length,
           selectedStudents: selectedCount,
           pendingApplications: pendingCount,
           upcomingInterviews: upcomingCount,
+          nextDrive: nextDrive
+            ? `${nextDrive.companyName} • ${nextDrive.jobRole}`
+            : "No active drives available",
+          lastUpdated: new Date().toLocaleString(),
         });
       } catch (error) {
         console.error("Failed to load admin stats:", error);
@@ -51,114 +62,110 @@ export default function AdminDashboard() {
   }, []);
 
   const cards = [
-    { title: "Total Companies", value: stats.totalCompanies },
-    { title: "Total Students", value: stats.totalStudents },
-    { title: "Active Drives", value: stats.activeDrives },
-    { title: "Selected Students", value: stats.selectedStudents },
-    { title: "Pending Applications", value: stats.pendingApplications },
-    { title: "Interviews Scheduled", value: stats.upcomingInterviews },
+    { title: "Total Companies", value: stats.totalCompanies, accent: "from-blue-500 to-sky-500" },
+    { title: "Total Students", value: stats.totalStudents, accent: "from-emerald-500 to-teal-500" },
+    { title: "Active Drives", value: stats.activeDrives, accent: "from-indigo-500 to-violet-500" },
+    { title: "Selected Students", value: stats.selectedStudents, accent: "from-slate-500 to-gray-700" },
+    { title: "Pending Applications", value: stats.pendingApplications, accent: "from-orange-500 to-amber-500" },
+    { title: "Interviews Scheduled", value: stats.upcomingInterviews, accent: "from-fuchsia-500 to-pink-500" },
   ];
 
-  const downloadCSV = (filename, rows) => {
-    const header = Object.keys(rows[0] || {}).join(",");
-    const csv = [header]
-      .concat(rows.map((row) => Object.values(row).map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportReport = async (type) => {
-    try {
-      if (type === "students") {
-        const res = await api.get("/students");
-        const rows = res.data.map((student) => ({
-          name: student.user?.name || "",
-          email: student.user?.email || "",
-          rollNumber: student.rollNumber,
-          branch: student.branch,
-          cgpa: student.cgpa,
-          backlogs: student.backlogs,
-        }));
-        downloadCSV("students-report.csv", rows);
-      }
-
-      if (type === "companies") {
-        const res = await api.get("/companies");
-        const rows = res.data.map((company) => ({
-          companyName: company.companyName,
-          jobRole: company.jobRole,
-          ctc: company.ctc,
-          minCGPA: company.minCGPA,
-          deadline: company.deadline?.slice(0, 10) || "",
-          eligibleBranches: (company.eligibleBranches || []).join(";") || "All",
-        }));
-        downloadCSV("companies-report.csv", rows);
-      }
-
-      if (type === "applications") {
-        const res = await api.get("/applications/all");
-        const rows = res.data.map((app) => ({
-          student: app.student?.user?.name || "",
-          email: app.student?.user?.email || "",
-          company: app.company?.companyName || "",
-          role: app.company?.jobRole || "",
-          status: app.status,
-          appliedAt: app.createdAt?.slice(0, 10) || "",
-        }));
-        downloadCSV("applications-report.csv", rows);
-      }
-    } catch (error) {
-      console.error("Failed to export report:", error);
-      alert("Unable to generate report. Try again later.");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-slate-50 p-6">
       <AdminNav />
-      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {cards.map((item) => (
-          <div key={item.title} className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-gray-500 text-sm font-medium">{item.title}</h2>
-            <p className="text-3xl font-bold mt-2 text-blue-600">{item.value}</p>
+      <div className="flex flex-col gap-6">
+        <section className="rounded-[2rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 p-8 shadow-xl text-white">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div className="max-w-2xl">
+              <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Smart Placement Tracker</p>
+              <h1 className="mt-4 text-4xl font-semibold">Admin Control Center</h1>
+              <p className="mt-4 text-slate-300 leading-7">
+                Monitor live placement activity, manage drives, and keep your team aligned with the latest student and company status.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  to="/admin/companies"
+                  className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                >
+                  Manage Companies
+                </Link>
+                <Link
+                  to="/admin/applications"
+                  className="inline-flex items-center justify-center rounded-full bg-slate-200/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-200/20"
+                >
+                  View Applications
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:w-[360px]">
+              <div className="rounded-3xl bg-slate-800/70 p-5 shadow-lg">
+                <p className="text-sm uppercase text-slate-400">Next Drive</p>
+                <p className="mt-3 text-lg font-semibold text-white">{stats.nextDrive}</p>
+              </div>
+              <div className="rounded-3xl bg-slate-800/70 p-5 shadow-lg">
+                <p className="text-sm uppercase text-slate-400">Last refresh</p>
+                <p className="mt-3 text-lg font-semibold text-white">{stats.lastUpdated}</p>
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
+        </section>
 
-      <div className="bg-white rounded-xl shadow-md p-6 mt-8">
-        <h2 className="text-xl font-semibold mb-2">Welcome to Smart Placement Tracker</h2>
-        <p className="text-gray-600">
-          Manage companies, students, recruitment drives, and interview progress from one centralized dashboard.
-        </p>
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => exportReport("students")}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Download Students Report
-          </button>
-          <button
-            onClick={() => exportReport("companies")}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          >
-            Download Companies Report
-          </button>
-          <button
-            onClick={() => exportReport("applications")}
-            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
-          >
-            Download Applications Report
-          </button>
-        </div>
+        <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((item) => (
+            <div
+              key={item.title}
+              className={`rounded-[1.75rem] bg-white p-6 shadow-lg ring-1 ring-slate-200`}
+            >
+              <p className="text-sm font-semibold text-slate-500">{item.title}</p>
+              <p className="mt-4 text-4xl font-semibold text-slate-900">{item.value}</p>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-[1.75rem] bg-white p-6 shadow-lg ring-1 ring-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900">Live Placement Overview</h2>
+            <p className="mt-4 text-slate-600 leading-7">
+              The dashboard automatically hides expired drives and shows current active recruitment opportunities only. Use the Companies and Applications pages for filtering, exports, and candidate review.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Active Drives</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{stats.activeDrives}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Pending Applications</p>
+                <p className="mt-2 text-2xl font-semibold text-amber-600">{stats.pendingApplications}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] bg-white p-6 shadow-lg ring-1 ring-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900">Quick Actions</h2>
+            <div className="mt-5 grid gap-3">
+              <Link
+                to="/admin/companies"
+                className="block rounded-2xl bg-slate-900 px-4 py-4 text-slate-100 transition hover:bg-slate-800"
+              >
+                Create or edit company drives
+              </Link>
+              <Link
+                to="/admin/applications"
+                className="block rounded-2xl bg-slate-100 px-4 py-4 text-slate-900 transition hover:bg-slate-200"
+              >
+                Review application progress
+              </Link>
+              <Link
+                to="/admin/students"
+                className="block rounded-2xl bg-slate-100 px-4 py-4 text-slate-900 transition hover:bg-slate-200"
+              >
+                Manage student profiles
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
