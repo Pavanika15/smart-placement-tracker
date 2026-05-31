@@ -12,7 +12,7 @@ const studentSchema = new mongoose.Schema(
     branch: {
       type: String,
       required: true,
-      enum: ['CSE', 'CSE-AI', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL'],
+      enum: ['CSE', 'CSE-AI', 'AIML', 'CSE-DS', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL'],
     },
 
     // course and section added to support filtering by course/section
